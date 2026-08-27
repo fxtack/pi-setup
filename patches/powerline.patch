@@ -76,3 +76,144 @@
        content = format === "both" ? `${tokens} (${hitRate}%)` : tokens;
      }
      return { content: color(ctx, "tokens", content), visible: true };
+--- a/bash-mode/editor.ts
++++ b/bash-mode/editor.ts
+@@ -364,6 +364,8 @@
+     } else {
+       this.clearGhostSuggestion();
+     }
++    // Fire onChange so Pi's editor feedback stays wired (e.g. `!` prefix border color)
++    this.onChange?.(this.getText());
+     return true;
+   }
+ 
+--- a/index.ts
++++ b/index.ts
+@@ -1076,66 +1076,85 @@
+   const separatorDef = getSeparator(separatorStyle);
+   const sepWidth = visibleWidth(separatorDef.left) + 2; // separator + spaces around it
+ 
+-  // Get all segments: primary first, then secondary
++  // Get all segments: left + right groups
+   const mergedSegments = mergeSegmentsWithCustomItems(presetDef, config.customItems, {
+     layout: config.layout,
+     disabledSegments: config.disabledSegments,
+   });
+-  const primaryIds = [...mergedSegments.leftSegments, ...mergedSegments.rightSegments];
+-  const secondaryIds = mergedSegments.secondarySegments;
+-  const allSegmentIds = [...primaryIds, ...secondaryIds];
++  const leftIds = mergedSegments.leftSegments;
++  const rightIds = mergedSegments.rightSegments;
+ 
+-  // Render all segments and get their widths
+-  const renderedSegments: { content: string; width: number }[] = [];
+-  for (const segId of allSegmentIds) {
++  // Separate left and right groups so `right` can be right-aligned to the screen edge.
++  const leftRendered: { content: string; width: number }[] = [];
++  const rightRendered: { content: string; width: number }[] = [];
++  const renderedByKey = new Map([...leftIds.map((id) => [id, true]), ...rightIds.map((id) => [id, false])]);
++  const primaryIds = [...leftIds, ...rightIds];
++  for (const segId of primaryIds) {
+     const { content, width, visible } = renderSegmentWithWidth(segId, ctx);
+-    if (visible) {
+-      renderedSegments.push({ content, width });
+-    }
++    if (!visible) continue;
++    const entry = { content, width };
++    if (renderedByKey.get(segId) === false) rightRendered.push(entry);
++    else leftRendered.push(entry);
+   }
+ 
+-  if (renderedSegments.length === 0) {
+-    return { topContent: "", secondaryContent: "" };
+-  }
++  const buildStr = (parts: { content: string; width: number }[]) =>
++    parts.length === 0 ? "" : parts.map((p) => p.content).join(` ${separatorDef.left} `);
+ 
+-  // Calculate how many segments fit in top bar
++  const leftStr = buildStr(leftRendered);
++  const rightStr = buildStr(rightRendered);
++  const leftW = leftRendered.reduce((s, p) => s + p.width, 0) + (leftRendered.length > 0 ? (leftRendered.length - 1) * sepWidth : 0);
++  const rightW = rightRendered.reduce((s, p) => s + p.width, 0) + (rightRendered.length > 0 ? (rightRendered.length - 1) * sepWidth : 0);
++
+   // Account for: leading space (1) + trailing space (1) = 2 chars overhead
+   const baseOverhead = 2;
+-  let currentWidth = baseOverhead;
+-  let topSegments: string[] = [];
++  const fullWidth = (leftStr ? 2 : 0) + leftW + (rightStr ? 2 : 0) + rightW;
++  let topContent: string;
+   let overflowSegments: { content: string; width: number }[] = [];
+-  let overflow = false;
++  let secondarySegments: { content: string; width: number }[] = [];
+ 
+-  for (const seg of renderedSegments) {
+-    const neededWidth = seg.width + (topSegments.length > 0 ? sepWidth : 0);
+-
+-    if (!overflow && currentWidth + neededWidth <= availableWidth) {
+-      topSegments.push(seg.content);
+-      currentWidth += neededWidth;
+-    } else {
+-      overflow = true;
+-      overflowSegments.push(seg);
+-    }
+-  }
+-
+-  // Fit overflow segments into secondary row (same width constraint)
+-  // Stop at first non-fitting segment to preserve ordering
+-  let secondaryWidth = baseOverhead;
+-  let secondarySegments: string[] = [];
++  if (rightStr && fullWidth <= availableWidth) {
++    // Both groups fit: left at the left edge, right pushed to the right edge.
++    const pad = Math.max(1, availableWidth - (leftStr ? 2 + leftW : 0) - (rightStr ? 2 + rightW : 0));
++    topContent = (leftStr ? ` ${leftStr} ` : "") + " ".repeat(pad) + (rightStr ? ` ${rightStr} ` : "");
++  } else if (!rightStr && leftW + baseOverhead <= availableWidth) {
++    topContent = ` ${leftStr} `;
++  } else if (leftW + (rightStr ? rightW + sepWidth : 0) <= availableWidth) {
++    // No right alignment possible, but all fit sequentially on one row.
++    const seq = [...leftRendered, ...rightRendered];
++    topContent = ` ${seq.map((p) => p.content).join(` ${separatorDef.left} `)} `;
++  } else {
++    // Sequential fit with overflow to the secondary row (preserve ordering).
++    const seq = [...leftRendered, ...rightRendered];
++    let currentWidth = baseOverhead;
++    const topSegments: string[] = [];
++    let overflow = false;
++    for (const seg of seq) {
++      const neededWidth = seg.width + (topSegments.length > 0 ? sepWidth : 0);
++      if (!overflow && currentWidth + neededWidth <= availableWidth) {
++        topSegments.push(seg.content);
++        currentWidth += neededWidth;
++      } else {
++        overflow = true;
++        overflowSegments.push(seg);
++      }
++    }
++    topContent = topSegments.length ? ` ${topSegments.join(` ${separatorDef.left} `)} ` : "";
+ 
+-  for (const seg of overflowSegments) {
+-    const neededWidth = seg.width + (secondarySegments.length > 0 ? sepWidth : 0);
+-    if (secondaryWidth + neededWidth <= availableWidth) {
+-      secondarySegments.push(seg.content);
+-      secondaryWidth += neededWidth;
+-    } else {
+-      break;
++    let secondaryWidth = baseOverhead;
++    for (const seg of overflowSegments) {
++      const neededWidth = seg.width + (secondarySegments.length > 0 ? sepWidth : 0);
++      if (secondaryWidth + neededWidth <= availableWidth) {
++        secondarySegments.push(seg);
++        secondaryWidth += neededWidth;
++      } else {
++        break;
++      }
+     }
+   }
+ 
+   return {
+-    topContent: buildContentFromParts(topSegments, separatorStyle),
+-    secondaryContent: buildContentFromParts(secondarySegments, separatorStyle),
++    topContent,
++    secondaryContent: secondarySegments.length ? ` ${secondarySegments.map((p) => p.content).join(` ${separatorDef.left} `)} ` : "",
+   };
+ }
+ 
