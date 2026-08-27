@@ -1,6 +1,8 @@
-# Pi 环境迁移包
+# pi-setup — Pi 环境一键迁移包
 
 一套命令把本机的 pi 插件、配置和显示定制迁移到任何新环境。
+
+默认是纯配置 + 脚本部署；部分显示效果需要 `patches/powerline.patch`（见下方版本说明）。
 
 ## 包含内容
 
@@ -14,17 +16,20 @@
 
 ## 使用方法
 
-### 新机器部署
+### 新机器部署（推荐 git clone）
 
 ```bash
-# 1. 拷贝整个 setup 目录到新机器（任意位置，如 ~/Project/setup/）
-scp -r ~/Project/setup user@newhost:~/
+# 1. 克隆仓库（或直接下载 ZIP）
+git clone https://github.com/fxtack/pi-setup.git
+cd pi-setup
 
-# 2. 新机器上执行
-bash ~/setup/install.sh
+# 2. 执行一键部署（脚本用相对路径定位资源，放哪个目录都行）
+bash install.sh
 
 # 3. 新开终端标签页，启动 pi
 ```
+
+> 也可以 `scp -r ~/Project/pi-setup user@newhost:~` 拷贝目录后 `bash pi-setup/install.sh`。
 
 脚本会自动：
 1. `pi install` 全部 9 个包（lmstudio、mcp-adapter、hound、subagents、fff、hermes-memory、permission-system、powerline-footer、rpiv-todo）
@@ -38,7 +43,7 @@ bash ~/setup/install.sh
 
 ```bash
 cd ~/.pi/agent/npm/node_modules/pi-powerline-footer
-patch -p1 < ~/Project/setup/patches/powerline.patch
+patch -p1 < ~/Project/pi-setup/patches/powerline.patch
 ```
 
 或直接重跑 `install.sh`（自动检测并跳过已应用部分）。
@@ -57,7 +62,7 @@ patch 可能无法应用。升级流程：
 
 1. 在新版本上重新验证 / 重新生成 `patches/powerline.patch`
 2. 更新 `install.sh` 里的 `POWERLINE_VERSION`
-3. 更新 `setup/README.md` 的版本说明
+3. 更新 `pi-setup/README.md` 的版本说明
 
 `install.sh` 启动时会检查目录结构、锁定版本、`patch --dry-run` 预检，
 任一不通过都会报错退出，绝不会在状态不一致时静默继续。
