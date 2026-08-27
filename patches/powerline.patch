@@ -293,7 +293,7 @@
        finishPendingQueueDelivery(getPromptHistoryText(message.content), ctx);
 +    } else if (isSessionAssistantMessage(message)) {
 +      // Record the start of an assistant generation for per-message TPS.
-+      msgStart = { at: Date.now(), output: getUsageTokenTotal(message.usage) ?? 0 };
++      msgStart = { at: Date.now(), output: 0 };
 +      msgTpsValue = null;
      }
    });
@@ -304,13 +304,13 @@
      requestImmediateStatusRender({ deferDuringTyping: false });
 +
 +    // Compute per-message TPS over the whole generation (stable, non intrusive
-+    // — this only reads the final usage, so it does not touch the streaming path).
++    // — this only reads the final usage.output of this message, so it does not
++    // touch the streaming path and never mixes in cumulative token totals).
 +    if (isSessionAssistantMessage(event.message)) {
-+      const out = getUsageTokenTotal(event.message.usage) ?? 0;
-+      const elapsed = Date.now() - msgStart.at;
-+      const gen = out - msgStart.output;
-+      if (msgStart.at > 0 && elapsed > 0 && gen > 0) {
-+        msgTpsValue = gen / (elapsed / 1000);
++      const out = event.message.usage?.output ?? 0;
++      const elapsed = Date.now() - (msgStart.at || 0);
++      if (msgStart.at > 0 && elapsed > 0 && out > 0) {
++        msgTpsValue = out / (elapsed / 1000);
 +        // Kept for the lifetime of the footer until the next message starts.
 +        requestImmediateStatusRender({ deferDuringTyping: false });
 +      }
