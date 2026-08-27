@@ -1,0 +1,11 @@
+# 防误传：任何形式的密钥/凭据文件（即使未来加进来也不会被提交）
+*.env
+.env*
+auth.json
+models-store.json
+models.json
+*.pem
+*.key
+id_rsa*
+.netrc
+.npmrc

@@ -1,0 +1,78 @@
+--- a/icons.ts
++++ b/icons.ts
+@@ -28,20 +28,24 @@
+ 
+ // Thinking level display text (Unicode/ASCII)
+ export const THINKING_TEXT_UNICODE: Record<string, string> = {
+-  minimal: "[min]",
+-  low: "[low]",
+-  medium: "[med]",
+-  high: "[high]",
+-  xhigh: "[xhi]",
++  off: "off",
++  minimal: "minimal",
++  low: "low",
++  medium: "medium",
++  high: "high",
++  xhigh: "xhigh",
++  max: "max",
+ };
+ 
+ // Thinking level display text (Nerd Fonts - with icons)
+ export const THINKING_TEXT_NERD: Record<string, string> = {
+-  minimal: "\u{F0E7} min",   // lightning bolt
+-  low: "\u{F10C} low",       // circle outline
+-  medium: "\u{F192} med",    // dot circle
+-  high: "\u{F111} high",     // circle
+-  xhigh: "\u{F06D} xhi",     // fire
++  off: "off",
++  minimal: "minimal",
++  low: "low",
++  medium: "medium",
++  high: "high",
++  xhigh: "xhigh",
++  max: "max",
+ };
+ 
+ // Get thinking text based on font support
+--- a/segments.ts
++++ b/segments.ts
+@@ -62,11 +62,9 @@
+ 
+     if (opts.showThinkingLevel !== false && ctx.model?.reasoning) {
+       const level = ctx.thinkingLevel || "off";
+-      if (level !== "off") {
+-        const thinkingText = getThinkingText(level);
+-        if (thinkingText) {
+-          content += `${SEP_DOT}${thinkingText}`;
+-        }
++      const thinkingText = getThinkingText(level);
++      if (thinkingText) {
++        content += `${SEP_DOT}${thinkingText}`;
+       }
+     }
+ 
+@@ -270,11 +268,10 @@
+ const tokenInSegment: StatusLineSegment = {
+   id: "token_in",
+   render(ctx) {
+-    const icons = getIcons();
+-    const { input } = ctx.usageStats;
+-    if (!input) return { content: "", visible: false };
++    const { input, output } = ctx.usageStats;
++    if (!input && !output) return { content: "", visible: false };
+ 
+-    const content = withIcon(icons.input, formatTokens(input));
++    const content = `i/o${SEP_DOT}${formatTokens(input)}/${formatTokens(output)}`;
+     return { content: color(ctx, "tokens", content), visible: true };
+   },
+ };
+@@ -457,7 +454,7 @@
+     if (format === "percent") {
+       content = [icons.cache, `${hitRate}%`].filter(Boolean).join(" ");
+     } else {
+-      const tokens = [icons.cache, icons.input, formatTokens(cacheRead)].filter(Boolean).join(" ");
++      const tokens = `cached ${formatTokens(cacheRead)}`;
+       content = format === "both" ? `${tokens} (${hitRate}%)` : tokens;
+     }
+     return { content: color(ctx, "tokens", content), visible: true };
