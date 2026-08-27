@@ -92,26 +92,7 @@
      return { content: color(ctx, "tokens", content), visible: true };
    },
  };
-@@ -418,6 +429,18 @@
-     timeStr += suffix;
- 
-     return { content: withIcon(icons.time, timeStr), visible: true };
-+  },
-+};
-+
-+const msgTpsSegment: StatusLineSegment = {
-+  id: "msg_tps",
-+  render(ctx) {
-+    const tps = ctx.extMsgTps;
-+    // Show only after a completed turn, for a few seconds, then hide.
-+    if (tps === null || tps === undefined || !Number.isFinite(tps) || tps <= 0) {
-+      return { content: "", visible: false };
-+    }
-+    return { content: color(ctx, "tokens", `TPS ${tps.toFixed(0)}`), visible: true };
-   },
- };
- 
-@@ -457,7 +480,7 @@
+@@ -457,7 +468,7 @@
      if (format === "percent") {
        content = [icons.cache, `${hitRate}%`].filter(Boolean).join(" ");
      } else {
@@ -120,32 +101,6 @@
        content = format === "both" ? `${tokens} (${hitRate}%)` : tokens;
      }
      return { content: color(ctx, "tokens", content), visible: true };
-@@ -524,6 +547,7 @@
-   context_total: contextTotalSegment,
-   time_spent: timeSpentSegment,
-   time: timeSegment,
-+  msg_tps: msgTpsSegment,
-   session: sessionSegment,
-   hostname: hostnameSegment,
-   cache_read: cacheReadSegment,
---- a/types.ts
-+++ b/types.ts
-@@ -44,6 +44,7 @@
-   "context_total",
-   "time_spent",
-   "time",
-+  "msg_tps",
-   "session",
-   "hostname",
-   "cache_read",
-@@ -201,6 +202,7 @@
-   usingSubscription: boolean;
-   queueSummary: QueueSummary;
-   sessionStartTime: number;
-+  extMsgTps: number | null;
-   shellModeActive: boolean;
-   shellRunning: boolean;
-   shellName: string | null;
 --- a/index.ts
 +++ b/index.ts
 @@ -1076,66 +1076,85 @@
@@ -275,56 +230,6 @@
 +    secondaryContent: secondarySegments.length ? ` ${secondarySegments.map((p) => p.content).join(` ${separatorDef.left} `)} ` : "",
    };
  }
- 
-@@ -1182,6 +1201,10 @@
-   let liveAssistantUsage: SessionAssistantUsage | null = null;
-   let approximateContextUsage: CoreContextUsage | null = null;
-   let isStreaming = false;
-+  // Per-message TPS (tokens/sec) measured between assistant message start and end.
-+  // Persists on the footer until the next assistant message starts.
-+  let msgTpsValue: number | null = null;
-+  let msgStart = { at: 0, output: 0 };
-   let tuiRef: any = null;
-   let restoreFooterStatusRepaintHook: (() => void) | null = null;
-   let stashShortcutInputUnsubscribe: (() => void) | null = null;
-@@ -1892,6 +1915,10 @@
-     const message = event.message;
-     if (isRecord(message) && message.role === "user") {
-       finishPendingQueueDelivery(getPromptHistoryText(message.content), ctx);
-+    } else if (isSessionAssistantMessage(message)) {
-+      // Record the start of an assistant generation for per-message TPS.
-+      msgStart = { at: Date.now(), output: 0 };
-+      msgTpsValue = null;
-     }
-   });
- 
-@@ -1906,6 +1933,19 @@
-       }
-     }
-     requestImmediateStatusRender({ deferDuringTyping: false });
-+
-+    // Compute per-message TPS over the whole generation (stable, non intrusive
-+    // — this only reads the final usage.output of this message, so it does not
-+    // touch the streaming path and never mixes in cumulative token totals).
-+    if (isSessionAssistantMessage(event.message)) {
-+      const out = event.message.usage?.output ?? 0;
-+      const elapsed = Date.now() - (msgStart.at || 0);
-+      if (msgStart.at > 0 && elapsed > 0 && out > 0) {
-+        msgTpsValue = out / (elapsed / 1000);
-+        // Kept for the lifetime of the footer until the next message starts.
-+        requestImmediateStatusRender({ deferDuringTyping: false });
-+      }
-+    }
-   });
- 
-   pi.on("turn_end", async (_event, ctx) => {
-@@ -2730,6 +2770,7 @@
-       options: segmentOptions,
-       theme,
-       colors,
-+      extMsgTps: msgTpsValue,
-     };
-   }
  
 --- a/bash-mode/editor.ts
 +++ b/bash-mode/editor.ts
