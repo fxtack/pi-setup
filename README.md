@@ -10,7 +10,7 @@
 | `configs/mcp.json` | Playwright MCP 服务器配置 → `~/.config/mcp/mcp.json` |
 | `configs/powerline-theme.json` | footer 图标文字定制 → `~/.pi/agent/extensions/powerline-footer/theme.json` |
 | `configs/permission-config.json` | 权限插件策略（含 yoloMode）→ `~/.pi/agent/extensions/pi-permission-system/config.json` |
-| `patches/powerline.patch` | footer 源码 patch（思考级别完整文本 / off+max / i/o 合并 / cached 格式） |
+| `patches/powerline.patch` | footer 源码 patch（思考级别完整文本 / off+max / i/o 合并 / cached 格式 / 右对齐布局 / `!` 边框反馈） |
 
 ## 使用方法
 
@@ -49,7 +49,19 @@ patch -p1 < ~/Project/setup/patches/powerline.patch
 - **Playwright Chromium**：`npx playwright install chromium`（国内网络建议 `PLAYWRIGHT_DOWNLOAD_HOST=https://npmmirror.com/mirrors/playwright/`）
 - **lmstudio** 如需连本地模型：新机器需自行安装 LM Studio
 
-## 注意
+## 注意事项（重要）
+
+⚠️ **powerline-footer 版本被锁定为 0.16.0**（`install.sh` 用 `npm:pi-powerline-footer@0.16.0` 安装并校验版本）。
+`patches/powerline.patch` 是针对 0.16.0 源码生成的，如果升级到更高版本，
+patch 可能无法应用。升级流程：
+
+1. 在新版本上重新验证 / 重新生成 `patches/powerline.patch`
+2. 更新 `install.sh` 里的 `POWERLINE_VERSION`
+3. 更新 `setup/README.md` 的版本说明
+
+`install.sh` 启动时会检查目录结构、锁定版本、`patch --dry-run` 预检，
+任一不通过都会报错退出，绝不会在状态不一致时静默继续。
 
 - 脚本会**覆盖**目标机器的 powerline / 权限插件 / mcp 配置，部署前确认目标机无更重要的本地定制
 - `settings.json` 只合并 `powerline` 键，其他键（模型、主题等）保持不动
+- 其余 8 个包（除 powerline 外）不锁版本，跟随 `latest`
