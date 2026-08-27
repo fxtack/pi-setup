@@ -281,8 +281,8 @@
    let approximateContextUsage: CoreContextUsage | null = null;
    let isStreaming = false;
 +  // Per-message TPS (tokens/sec) measured between assistant message start and end.
++  // Persists on the footer until the next assistant message starts.
 +  let msgTpsValue: number | null = null;
-+  let msgTpsExpireAt = 0;
 +  let msgStart = { at: 0, output: 0 };
    let tuiRef: any = null;
    let restoreFooterStatusRepaintHook: (() => void) | null = null;
@@ -311,7 +311,7 @@
 +      const gen = out - msgStart.output;
 +      if (msgStart.at > 0 && elapsed > 0 && gen > 0) {
 +        msgTpsValue = gen / (elapsed / 1000);
-+        msgTpsExpireAt = Date.now() + 5000; // show for 5s after the turn
++        // Kept for the lifetime of the footer until the next message starts.
 +        requestImmediateStatusRender({ deferDuringTyping: false });
 +      }
 +    }
@@ -322,7 +322,7 @@
        options: segmentOptions,
        theme,
        colors,
-+      extMsgTps: Date.now() <= msgTpsExpireAt ? msgTpsValue : null,
++      extMsgTps: msgTpsValue,
      };
    }
  
