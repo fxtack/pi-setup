@@ -52,7 +52,32 @@
        }
      }
  
-@@ -270,11 +268,10 @@
+@@ -126,8 +124,22 @@
+       }
+     }
+ 
+-    const content = withIcon(icons.folder, pwd);
+-    return { content: color(ctx, "path", content), visible: true };
++    const contentBase = withIcon(icons.folder, pwd);
++
++    // Merge git branch in as `~/dir [branch]` (folder icon already empty for ASCII,
++    // so this reads as just the path plus the branch).
++    const isDirty =
++      (ctx.git.unstaged > 0 || ctx.git.staged > 0 || ctx.git.untracked > 0);
++    const branch = ctx.git.branch;
++    if (branch) {
++      const branchColor: SemanticColor = isDirty ? "gitDirty" : "gitClean";
++      return {
++        content: `${contentBase} ${color(ctx, branchColor, `[${branch}]`)}`,
++        visible: true,
++      };
++    }
++
++    return { content: contentBase, visible: true };
+   },
+ };
+ 
+@@ -270,11 +282,10 @@
  const tokenInSegment: StatusLineSegment = {
    id: "token_in",
    render(ctx) {
@@ -67,7 +92,7 @@
      return { content: color(ctx, "tokens", content), visible: true };
    },
  };
-@@ -457,7 +454,7 @@
+@@ -457,7 +468,7 @@
      if (format === "percent") {
        content = [icons.cache, `${hitRate}%`].filter(Boolean).join(" ");
      } else {

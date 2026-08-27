@@ -46,7 +46,7 @@ powerline = {
     "welcome": False,
     "layout": {
         "left": ["context_pct", "token_in", "cache_read", "token_total",
-                 "cost", "cache_write", "path", "git"],
+                 "cost", "cache_write", "path"],
         "right": ["model"],
     },
     "separator": "pipe",
