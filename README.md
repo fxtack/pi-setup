@@ -17,8 +17,8 @@
 ### 新机器部署
 
 ```bash
-# 1. 拷贝整个 setup 目录到新机器（任意位置，如 ~/.pi/agent/setup/）
-scp -r ~/.pi/agent/setup user@newhost:~/
+# 1. 拷贝整个 setup 目录到新机器（任意位置，如 ~/Project/setup/）
+scp -r ~/Project/setup user@newhost:~/
 
 # 2. 新机器上执行
 bash ~/setup/install.sh
@@ -38,7 +38,7 @@ bash ~/setup/install.sh
 
 ```bash
 cd ~/.pi/agent/npm/node_modules/pi-powerline-footer
-patch -p1 < ~/.pi/agent/setup/patches/powerline.patch
+patch -p1 < ~/Project/setup/patches/powerline.patch
 ```
 
 或直接重跑 `install.sh`（自动检测并跳过已应用部分）。
