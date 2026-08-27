@@ -107,7 +107,7 @@
 +    if (tps === null || tps === undefined || !Number.isFinite(tps) || tps <= 0) {
 +      return { content: "", visible: false };
 +    }
-+    return { content: color(ctx, "tokens", `${tps.toFixed(0)} tou/s`), visible: true };
++    return { content: color(ctx, "tokens", `TPS ${tps.toFixed(0)}`), visible: true };
    },
  };
  
