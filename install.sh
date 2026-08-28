@@ -136,7 +136,7 @@ repair_and_apply() {  # 重装还原干净源码后统一应用 patch
   echo "  patch 已重新应用（${reason} 已清理）"
 }
 
-if echo "$PATCH_STATE" | grep -q "hunks failed"; then
+if echo "$PATCH_STATE" | grep -qiE "hunks? failed"; then
   # 旧版 patch 残留或源码损坏：其他文件与 patch 期望不一致，直接重装还原
   repair_and_apply "检测到旧版 patch 残留或源码不一致"
 elif [ -z "$MISSING" ]; then
