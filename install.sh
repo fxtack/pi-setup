@@ -31,13 +31,15 @@ for pkg in \
   "npm:@ff-labs/pi-fff" \
   "npm:pi-hermes-memory" \
   "npm:@gotgenes/pi-permission-system" \
+  "npm:pi-interactive-shell" \
+  "npm:betterwright" \
   "npm:pi-powerline-footer@$POWERLINE_VERSION" \
   "npm:@juicesharp/rpiv-todo"; do
   echo "  - $pkg"
   pi install "$pkg" >/dev/null 2>&1 || { echo "  !! 安装失败: $pkg"; exit 1; }
 done
 
-echo "==> [2/6] 合并 powerline 配置到 settings.json"
+echo "==> [2/6] 合并 powerline 配置与 TUI 全屏模式到 settings.json"
 python3 - "$AGENT_DIR/settings.json" <<'PY'
 import json, sys
 path = sys.argv[1]
@@ -55,9 +57,12 @@ powerline = {
 with open(path) as f:
     data = json.load(f)
 data["powerline"] = powerline
+# pi >= 0.84.3: 默认全屏 TUI + 常驻滚动条（仅当用户未自行设置时写入，避免覆盖个人选择）
+data.setdefault("tuiMode", "fullscreen")
+data.setdefault("fullscreenScrollbar", "always")
 with open(path, "w") as f:
     json.dump(data, f, indent=2, ensure_ascii=False)
-print("  settings.json powerline 已写入")
+print("  settings.json powerline / tuiMode 已写入")
 PY
 
 echo "==> [3/6] 复制配置文件"
