@@ -237,9 +237,18 @@ diff -ruN --exclude=.DS_Store package/index.ts /Users/yuanshilong/.pi/agent/npm/
  
 diff -ruN --exclude=.DS_Store package/segments.ts /Users/yuanshilong/.pi/agent/npm/node_modules/pi-powerline-footer/segments.ts
 --- a/segments.ts	1985-10-26 16:15:00
-+++ b/segments.ts	2026-08-28 10:19:12
-@@ -62,11 +62,9 @@
++++ b/segments.ts	2026-08-28 11:51:14
+@@ -60,13 +60,18 @@
  
+     let content = withIcon(icons.model, modelName);
+ 
++    // Per-message TPS (tokens/sec) rendered to the left of the model name,
++    // e.g. `51 tps · glm-5.3-flash · max`. Hidden between generations.
++    const tps = ctx.extMsgTps;
++    if (tps !== null && tps !== undefined && Number.isFinite(tps) && tps > 0) {
++      content = `${formatTokens(tps)} tps${SEP_DOT}${content}`;
++    }
++
      if (opts.showThinkingLevel !== false && ctx.model?.reasoning) {
        const level = ctx.thinkingLevel || "off";
 -      if (level !== "off") {
@@ -253,7 +262,7 @@ diff -ruN --exclude=.DS_Store package/segments.ts /Users/yuanshilong/.pi/agent/n
        }
      }
  
-@@ -126,8 +124,22 @@
+@@ -126,8 +131,22 @@
        }
      }
  
@@ -278,7 +287,7 @@ diff -ruN --exclude=.DS_Store package/segments.ts /Users/yuanshilong/.pi/agent/n
    },
  };
  
-@@ -270,11 +282,14 @@
+@@ -270,11 +289,10 @@
  const tokenInSegment: StatusLineSegment = {
    id: "token_in",
    render(ctx) {
@@ -289,15 +298,11 @@ diff -ruN --exclude=.DS_Store package/segments.ts /Users/yuanshilong/.pi/agent/n
 +    if (!input && !output) return { content: "", visible: false };
  
 -    const content = withIcon(icons.input, formatTokens(input));
-+    let content = `i/o${SEP_DOT}${formatTokens(input)}/${formatTokens(output)}`;
-+    const tps = ctx.extMsgTps;
-+    if (tps !== null && tps !== undefined && Number.isFinite(tps) && tps > 0) {
-+      content += ` (TPS ${tps.toFixed(0)})`;
-+    }
++    const content = `i/o${SEP_DOT}${formatTokens(input)}/${formatTokens(output)}`;
      return { content: color(ctx, "tokens", content), visible: true };
    },
  };
-@@ -457,7 +472,7 @@
+@@ -457,7 +475,7 @@
      if (format === "percent") {
        content = [icons.cache, `${hitRate}%`].filter(Boolean).join(" ");
      } else {
