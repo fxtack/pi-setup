@@ -12,6 +12,7 @@
 | `configs/mcp.json` | Playwright MCP 服务器配置 → `~/.config/mcp/mcp.json` |
 | `configs/powerline-theme.json` | footer 图标文字定制 → `~/.pi/agent/extensions/powerline-footer/theme.json` |
 | `configs/permission-config.json` | 权限插件策略（含 yoloMode）→ `~/.pi/agent/extensions/pi-permission-system/config.json` |
+| `configs/at-anywhere.ts` | Claude Code 风格 `@` 引用增强扩展（`@../`、`@/` 绝对路径、`@~/` 补全 + 上级目录逐级入口 + 不存在目录自动回退）→ `~/.pi/agent/extensions/at-anywhere.ts` |
 | `patches/powerline.patch` | footer 源码 patch（思考级别完整文本 / off+max / i/o 合并 / TPS 显示于模型名左侧 / cached 格式+命中率 / 右对齐布局 / `!` 边框反馈 / 宽度安全钳制，防超宽崩溃 pi） |
 
 ## 使用方法
@@ -34,7 +35,7 @@ bash install.sh
 脚本会自动：
 1. `pi install` 全部 12 个包（lmstudio、mcp-adapter、hound、subagents、fff、hermes-memory、permission-system、interactive-shell、betterwright、powerline-footer、rpiv-todo）
 2. 合并 powerline 布局/预设/分隔符 + TUI 全屏模式（`tuiMode`/`fullscreenScrollbar`，需 pi ≥ 0.84.3）到 `settings.json`
-3. 复制 3 个配置文件到正确位置
+3. 复制 4 个配置文件到正确位置（含 `at-anywhere.ts` `@` 引用增强扩展）
 4. 写入 `~/.zshenv` 环境变量（`POWERLINE_NERD_FONTS=0`、`~/.pi/agent/bin` PATH）
 5. 应用 powerline-footer 源码 patch（三态检测：干净源码直接应用 / 已是最新自动跳过 / 旧版残留自动重装修复）
 6. 环境检查（pi / hound / Playwright Chromium）
@@ -62,6 +63,16 @@ patch -p1 < ~/Project/pi-setup/patches/powerline.patch
 > - 纯追加型 hunk（如 editor.ts）patch 无法检测「已应用」，重复执行会重复追加；
 >   因此脚本改用每个文件一行**特征行**判定（`install.sh` 第 5 步的 `MISSING` 列表），
 >   升级 patch 时需同步更新该列表。
+
+## 附带功能：@ 引用增强（at-anywhere）
+
+`configs/at-anywhere.ts` 是 Claude Code 风格的 `@` 引用补全扩展，部署后输入 `@` 即可：
+
+- **`@..` / `@../` / `@../../`**：逐级跳出工作目录浏览，每次附带「再上一级」入口
+- **`@/绝对路径`、`@~/home`**：任意位置补全；目标目录不存在时自动回退到最近存在的上级，保证有结果
+- **格式与内置一致**：目录带 `/` 可继续进入、含空格路径自动 `@"..."` 引号包裹、项目内 `@name` 完全委托内置行为
+
+> 修改 `configs/at-anywhere.ts` 后重跑 `install.sh` 即可同步到目标机；pi 内 `/reload` 热加载生效。
 
 ## 依赖说明（脚本无法自动装的部分）
 

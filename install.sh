@@ -72,7 +72,9 @@ mkdir -p "$AGENT_DIR/extensions/powerline-footer" \
 cp "$CFG/powerline-theme.json" "$AGENT_DIR/extensions/powerline-footer/theme.json"
 cp "$CFG/permission-config.json" "$AGENT_DIR/extensions/pi-permission-system/config.json"
 cp "$CFG/mcp.json" "$CONFIG_MCP_DIR/mcp.json"
-echo "  theme.json / permission config / mcp.json 已复制"
+# @ 引用增强扩展（Claude Code 风格：@../、@/绝对路径、@~/ 补全），全局自动发现 + /reload 热加载
+cp "$CFG/at-anywhere.ts" "$AGENT_DIR/extensions/at-anywhere.ts"
+echo "  theme.json / permission config / mcp.json / at-anywhere.ts 已复制"
 
 echo "==> [4/6] 环境变量（~/.zshenv，幂等）"
 if ! grep -q "POWERLINE_NERD_FONTS=0" "$HOME/.zshenv" 2>/dev/null; then
