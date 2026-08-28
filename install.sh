@@ -50,6 +50,7 @@ powerline = {
         "right": ["model"],
     },
     "separator": "pipe",
+    "cache_read": {"format": "both"},
 }
 with open(path) as f:
     data = json.load(f)

@@ -12,7 +12,7 @@
 | `configs/mcp.json` | Playwright MCP 服务器配置 → `~/.config/mcp/mcp.json` |
 | `configs/powerline-theme.json` | footer 图标文字定制 → `~/.pi/agent/extensions/powerline-footer/theme.json` |
 | `configs/permission-config.json` | 权限插件策略（含 yoloMode）→ `~/.pi/agent/extensions/pi-permission-system/config.json` |
-| `patches/powerline.patch` | footer 源码 patch（思考级别完整文本 / off+max / i/o 合并 / cached 格式 / 右对齐布局 / `!` 边框反馈） |
+| `patches/powerline.patch` | footer 源码 patch（思考级别完整文本 / off+max / i/o 合并 / cached 格式+命中率 / 右对齐布局 / `!` 边框反馈 / 宽度安全钳制，防超宽崩溃 pi） |
 
 ## 使用方法
 
