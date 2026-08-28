@@ -34,7 +34,7 @@ bash install.sh
 
 脚本会自动：
 1. `pi install` 全部 12 个包（lmstudio、mcp-adapter、hound、subagents、fff、hermes-memory、permission-system、interactive-shell、betterwright、powerline-footer、rpiv-todo）
-2. 合并 powerline 布局/预设/分隔符 + TUI 全屏模式（`tuiMode`/`fullscreenScrollbar`，需 pi ≥ 0.84.3）到 `settings.json`
+2. 合并 powerline 布局/预设/分隔符 + TUI 全屏模式（`tuiMode`/`fullscreenScrollbar`）+ bash ghost 补全（`bashMode.completions`，作用于 `!`/`!!` 与 bash 模式输入）到 `settings.json`
 3. 复制 4 个配置文件到正确位置（含 `at-anywhere.ts` `@` 引用增强扩展）
 4. 写入 `~/.zshenv` 环境变量（`POWERLINE_NERD_FONTS=0`、`~/.pi/agent/bin` PATH）
 5. 应用 powerline-footer 源码 patch（三态检测：干净源码直接应用 / 已是最新自动跳过 / 旧版残留自动重装修复）

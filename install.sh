@@ -60,6 +60,8 @@ data["powerline"] = powerline
 # pi >= 0.84.3: 默认全屏 TUI + 常驻滚动条（仅当用户未自行设置时写入，避免覆盖个人选择）
 data.setdefault("tuiMode", "fullscreen")
 data.setdefault("fullscreenScrollbar", "always")
+# bash 模式 + 一次性 !/!! 命令的 ghost 补全（顶层键，非 powerline 下；setdefault 尊重用户已有设置）
+data.setdefault("bashMode", {"completions": True})
 with open(path, "w") as f:
     json.dump(data, f, indent=2, ensure_ascii=False)
 print("  settings.json powerline / tuiMode 已写入")
