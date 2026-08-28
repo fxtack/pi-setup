@@ -36,7 +36,7 @@ bash install.sh
 2. 合并 powerline 布局/预设/分隔符 + TUI 全屏模式（`tuiMode`/`fullscreenScrollbar`，需 pi ≥ 0.84.3）到 `settings.json`
 3. 复制 3 个配置文件到正确位置
 4. 写入 `~/.zshenv` 环境变量（`POWERLINE_NERD_FONTS=0`、`~/.pi/agent/bin` PATH）
-5. 应用 powerline-footer 源码 patch（已检测幂等，重复执行自动跳过）
+5. 应用 powerline-footer 源码 patch（三态检测：干净源码直接应用 / 已是最新自动跳过 / 旧版残留自动重装修复）
 6. 环境检查（pi / hound / Playwright Chromium）
 
 ## 升级扩展后恢复 patch
@@ -46,7 +46,22 @@ cd ~/.pi/agent/npm/node_modules/pi-powerline-footer
 patch -p1 < ~/Project/pi-setup/patches/powerline.patch
 ```
 
-或直接重跑 `install.sh`（自动检测并跳过已应用部分）。
+或直接重跑 `install.sh`。patch 步骤采用「dry-run 冲突预检 + 特征行全集判定」：
+
+| 检测结果 | 含义 | 动作 |
+|---|---|---|
+| 特征行全部在位 | 已应用当前最新 patch | 跳过 |
+| 特征缺失 + dry-run 干净 | 官方原版源码（新机器） | 直接打 patch |
+| dry-run 报 `hunks failed` | 旧版 patch 残留 / 源码损坏 | 自动重装 0.16.0 还原后重打 |
+| 特征部分缺失 + dry-run 非干净 | 混合状态（部分文件被还原） | 保守重装后统一重打 |
+
+> ⚠️ 已知坑：
+> - `pi install` 对**已安装的同版本**包是静默幂等的，**不会覆盖文件**。
+>   所以当 patch 演进后重跑脚本，若旧版 patch 仍残留在源码里，脚本会检测到 `hunks failed`
+>   并自动执行「移除目录 → 重装 → 重打 patch」，无需手动干预。
+> - 纯追加型 hunk（如 editor.ts）patch 无法检测「已应用」，重复执行会重复追加；
+>   因此脚本改用每个文件一行**特征行**判定（`install.sh` 第 5 步的 `MISSING` 列表），
+>   升级 patch 时需同步更新该列表。
 
 ## 依赖说明（脚本无法自动装的部分）
 
@@ -64,8 +79,9 @@ patch 可能无法应用。升级流程：
 2. 更新 `install.sh` 里的 `POWERLINE_VERSION`
 3. 更新 `pi-setup/README.md` 的版本说明
 
-`install.sh` 启动时会检查目录结构、锁定版本、`patch --dry-run` 预检，
-任一不通过都会报错退出，绝不会在状态不一致时静默继续。
+`install.sh` 启动时会检查目录结构、锁定版本，patch 步骤用 `patch -p1 -N --dry-run` 三态检测：
+干净源码直接应用；已应用最新则跳过；旧版残留或源码不一致则自动重装修复。
+**不会**在状态不一致时静默继续或静默跳过。
 
 - 脚本会**覆盖**目标机器的 powerline / 权限插件 / mcp 配置，部署前确认目标机无更重要的本地定制
 - `settings.json` 只合并 `powerline` 键，其他键（模型、主题等）保持不动

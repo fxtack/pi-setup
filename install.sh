@@ -102,17 +102,56 @@ if [ "$INSTALLED_VERSION" != "$POWERLINE_VERSION" ]; then
   exit 1
 fi
 
-if grep -q 'minimal: "minimal"' "$PFDIR/icons.ts" 2>/dev/null; then
-  echo "  patch 已应用过，跳过"
-else
-  if (cd "$PFDIR" && patch -p1 --dry-run < "$PATCHES/powerline.patch" >/dev/null 2>&1); then
-    (cd "$PFDIR" && patch -p1 < "$PATCHES/powerline.patch" >/dev/null)
-    echo "  patch 已应用"
-  else
-    echo "  !! patch dry-run 失败：源码与 patches/powerline.patch 期望的不一致。"
-    echo "  请在干净的 0.16.0 安装上应用此 patch，或重新生成 patch。"
+# ① 冲突预检：-N 正向 dry-run 的退出码仅在“全部干净可应用”时可靠（exit 0），
+#    其余情况用输出文本判断（hunks failed = 旧版残留/源码损坏）。
+#    注意：纯追加型 hunk（如 editor.ts）patch 无法检测“已应用”，
+#    因此“是否已应用”交给下面的特征行全集判定，不用 dry-run。
+set +e
+PATCH_STATE="$(cd "$PFDIR" && patch -p1 -N --dry-run < "$PATCHES/powerline.patch" 2>&1)"
+PATCH_EXIT=$?
+set -e
+
+# ② 特征行全集判定“最新 patch 是否完整在位”。
+#    每个文件取一行最新 patch 独有的特征；升级 patch 时需同步维护此列表。
+MISSING=""
+grep -q 'Fire onChange' "$PFDIR/bash-mode/editor.ts"  || MISSING="$MISSING editor.ts"
+grep -q 'minimal: "minimal"' "$PFDIR/icons.ts"         || MISSING="$MISSING icons.ts"
+grep -q 'msgTpsValue' "$PFDIR/index.ts"                || MISSING="$MISSING index.ts"
+grep -q 'tps.toFixed(1)' "$PFDIR/segments.ts"          || MISSING="$MISSING segments.ts"
+grep -q 'extMsgTps: number | null' "$PFDIR/types.ts"   || MISSING="$MISSING types.ts"
+
+repair_and_apply() {  # 重装还原干净源码后统一应用 patch
+  local reason="$1"
+  echo "  !! ${reason}，自动重装 ${POWERLINE_VERSION} 还原源码后重新应用..."
+  # pi install 对已装的同版本是静默幂等的（不覆盖文件），必须先移除目录
+  rm -rf "$PFDIR"
+  pi install "npm:pi-powerline-footer@$POWERLINE_VERSION" >/dev/null 2>&1 || {
+    echo "  !! 重装 ${POWERLINE_VERSION} 失败，请手动执行: pi install npm:pi-powerline-footer@$POWERLINE_VERSION"
+    exit 1
+  }
+  if ! (cd "$PFDIR" && patch -p1 < "$PATCHES/powerline.patch" >/dev/null); then
+    echo "  !! 在干净的 ${POWERLINE_VERSION} 上应用 patch 仍失败，请重新生成 patches/powerline.patch"
     exit 1
   fi
+  echo "  patch 已重新应用（${reason} 已清理）"
+}
+
+if echo "$PATCH_STATE" | grep -q "hunks failed"; then
+  # 旧版 patch 残留或源码损坏：其他文件与 patch 期望不一致，直接重装还原
+  repair_and_apply "检测到旧版 patch 残留或源码不一致"
+elif [ -z "$MISSING" ]; then
+  # 全部特征行在位 = 已应用当前最新 patch
+  echo "  patch 已是最新版本，跳过"
+elif [ $PATCH_EXIT -eq 0 ]; then
+  # 全新安装：dry-run 全部干净且特征缺失 → 直接应用
+  if ! (cd "$PFDIR" && patch -p1 < "$PATCHES/powerline.patch" >/dev/null); then
+    echo "  !! patch 应用失败，请检查 $PATCHES/powerline.patch"
+    exit 1
+  fi
+  echo "  patch 已应用"
+else
+  # 罕见的混合状态（如部分文件被还原）：保守重装，避免纯追加 hunk 重复打入
+  repair_and_apply "检测到 patch 部分缺失（$MISSING）"
 fi
 
 echo "==> [6/6] 环境检查"
