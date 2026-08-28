@@ -81,17 +81,17 @@ if [ -x "$HOME/.pi/agent/bin/hound" ] && ! echo "$PATH" | grep -q "$HOME/.pi/age
   echo "  已把 ~/.pi/agent/bin 加入 PATH"
 fi
 
-echo "==> [5/6] 应用 powerline-footer 源码 patch（版本 $POWERLINE_VERSION）"
+echo "==> [5/6] 应用 powerline-footer 源码 patch（版本 ${POWERLINE_VERSION}）"
 PFDIR="$NPM_DIR/pi-powerline-footer"
 if [ ! -d "$PFDIR" ]; then
-  echo "  !! 未找到 $PFDIR，无法应用 patch（请先重跑本脚本）"
+  echo "  !! 未找到 ${PFDIR}，无法应用 patch（请先重跑本脚本）"
   exit 1
 fi
 
 # 校验安装版本与 patch 锁定的版本一致，避免版本漂移导致 patch 失效
 INSTALLED_VERSION="$(node -e "console.log(require('$PFDIR/package.json').version)" 2>/dev/null || echo unknown)"
 if [ "$INSTALLED_VERSION" != "$POWERLINE_VERSION" ]; then
-  echo "  !! powerline-footer 版本不匹配: 已装 $INSTALLED_VERSION，patch 针对 $POWERLINE_VERSION。"
+  echo "  !! powerline-footer 版本不匹配: 已装 ${INSTALLED_VERSION}，patch 针对 ${POWERLINE_VERSION}。"
   echo "  请手动安装 $POWERLINE_VERSION 后再重跑: pi install npm:pi-powerline-footer@$POWERLINE_VERSION"
   exit 1
 fi
