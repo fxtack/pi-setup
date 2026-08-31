@@ -33,7 +33,7 @@ bash install.sh
 > 也可以 `scp -r ~/Project/pi-setup user@newhost:~` 拷贝目录后 `bash pi-setup/install.sh`。
 
 脚本会自动：
-1. `pi install` 全部 12 个包（lmstudio、mcp-adapter、hound、subagents、fff、hermes-memory、permission-system、interactive-shell、betterwright、powerline-footer、rpiv-todo）
+1. `pi install` 全部 12 个包（lmstudio、mcp-adapter、hound、subagents、fff、hermes-memory、permission-system、interactive-shell、betterwright、espresso、powerline-footer、rpiv-todo）
 2. 合并 powerline 布局/预设/分隔符 + TUI 全屏模式（`tuiMode`/`fullscreenScrollbar`）+ bash ghost 补全（`bashMode.completions`，作用于 `!`/`!!` 与 bash 模式输入）到 `settings.json`
 3. 复制 4 个配置文件到正确位置（含 `at-anywhere.ts` `@` 引用增强扩展）
 4. 写入 `~/.zshenv` 环境变量（`POWERLINE_NERD_FONTS=0`、`~/.pi/agent/bin` PATH）
@@ -74,6 +74,13 @@ patch -p1 < ~/Project/pi-setup/patches/powerline.patch
 
 > 修改 `configs/at-anywhere.ts` 后重跑 `install.sh` 即可同步到目标机；pi 内 `/reload` 热加载生效。
 
+## 附带功能：agent 运行防休眠（pi-espresso）
+
+通过 npm 安装（`npm:pi-espresso`，跟随 latest）。agent 运行期间调用 macOS 原生 `caffeinate -di` 保持显示器与系统唤醒，终端标题加 `☕️` 标记；异步 subagent 运行期间同样保持唤醒（通过 pi-subagents 生命周期事件感知）；断言绑定 pi 进程（`-w`），pi 异常退出不会残留。
+
+- 仅 macOS 生效；Linux/Windows 上自动 no-op，跨平台部署无副作用
+- 与 pi-subagents 配合使用效果最佳（子 agent 运行期间主窗口同步保持唤醒）
+
 ## 依赖说明（脚本无法自动装的部分）
 
 - **hound**（web 搜索工具）：`pip install hound-mcp[all]`
@@ -96,4 +103,5 @@ patch 可能无法应用。升级流程：
 
 - 脚本会**覆盖**目标机器的 powerline / 权限插件 / mcp 配置，部署前确认目标机无更重要的本地定制
 - `settings.json` 只合并 `powerline` 键，其他键（模型、主题等）保持不动
-- 其余 8 个包（除 powerline 外）不锁版本，跟随 `latest`
+- 其余 11 个包（除 powerline 外）不锁版本，跟随 `latest`（含 pi-espresso，Linux 上自动 no-op）
+- 本机若已用 **dev symlink** 方式安装 pi-espresso（`~/.pi/agent/extensions/espresso.ts` 指向源码仓库），重跑脚本会额外装 npm 副本造成**双加载**；开发机请先移除 symlink 再跑，或忽略该步骤

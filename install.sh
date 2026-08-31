@@ -33,6 +33,7 @@ for pkg in \
   "npm:@gotgenes/pi-permission-system" \
   "npm:pi-interactive-shell" \
   "npm:betterwright" \
+  "npm:pi-espresso" \
   "npm:pi-powerline-footer@$POWERLINE_VERSION" \
   "npm:@juicesharp/rpiv-todo"; do
   echo "  - $pkg"
