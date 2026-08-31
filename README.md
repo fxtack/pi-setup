@@ -9,6 +9,7 @@
 | 资产 | 说明 |
 |---|---|
 | `install.sh` | 一键部署脚本（幂等，可重复执行） |
+| `scripts/install-betterchromium.sh` | 安装 BetterChromium（BetterWright 托管浏览器），镜像加速 + SHA-256 校验，可独立运行 |
 | `configs/mcp.json` | Playwright MCP 服务器配置 → `~/.config/mcp/mcp.json` |
 | `configs/powerline-theme.json` | footer 图标文字定制 → `~/.pi/agent/extensions/powerline-footer/theme.json` |
 | `configs/permission-config.json` | 权限插件策略（含 yoloMode）→ `~/.pi/agent/extensions/pi-permission-system/config.json` |
@@ -38,7 +39,8 @@ bash install.sh
 3. 复制 4 个配置文件到正确位置（含 `at-anywhere.ts` `@` 引用增强扩展）
 4. 写入 `~/.zshenv` 环境变量（`POWERLINE_NERD_FONTS=0`、`~/.pi/agent/bin` PATH）
 5. 应用 powerline-footer 源码 patch（三态检测：干净源码直接应用 / 已是最新自动跳过 / 旧版残留自动重装修复）
-6. 环境检查（pi / hound / Playwright Chromium）
+6. 安装 BetterChromium（BetterWright 托管浏览器，走 gh-proxy.com 镜像加速，失败回退直连）
+7. 环境检查（pi / hound / Playwright Chromium / BetterChromium）
 
 ## 升级扩展后恢复 patch
 
@@ -84,8 +86,26 @@ patch -p1 < ~/Project/pi-setup/patches/powerline.patch
 ## 依赖说明（脚本无法自动装的部分）
 
 - **hound**（web 搜索工具）：`pip install hound-mcp[all]`
-- **Playwright Chromium**：`npx playwright install chromium`（国内网络建议 `PLAYWRIGHT_DOWNLOAD_HOST=https://npmmirror.com/mirrors/playwright/`）
+- **Playwright Chromium**（若直接用 playwright 而非 betterwright）：`npx playwright install chromium`（国内网络建议 `PLAYWRIGHT_DOWNLOAD_HOST=https://npmmirror.com/mirrors/playwright/`）
 - **lmstudio** 如需连本地模型：新机器需自行安装 LM Studio
+
+## BetterChromium 安装说明（国内网络优化）
+
+betterwright 的浏览器不是 Playwright 的 chromium，而是自己的 **BetterChromium fork**，`scripts/install-betterchromium.sh` 负责安装：
+
+- **为什么需要它**：`betterwright setup` 从 GitHub Releases 直连下载 ~182MB zip，国内直连仅 ~43KB/s（会卡死超时）；脚本默认走 `gh-proxy.com` 镜像（实测 24-33MB/s，5 秒完成）
+- **幂等**：已安装自动跳过；`--force` 强制重下
+- **安全**：下载后按 betterwright 源码 pin 的 SHA-256 校验，防镜像投毒
+- **跨平台**：macOS arm64 / Linux x64 / Windows x64 自动选择对应产物；不支持平台自动跳过
+- **可覆盖**：`BETTERWRIGHT_DOWNLOAD_MIRROR`（换镜像/设空跳过镜像）、`BETTERWRIGHT_CHROMIUM_VERSION`、`BETTERWRIGHT_CHROMIUM_RELEASE_TAG`、`BETTERWRIGHT_HOME`
+- **升级 betterwright 后**：若浏览器版本 pin 漂移，按脚本头部注释同步版本号与 sha256（或直接用环境变量覆盖）
+
+单独运行：
+
+```bash
+bash scripts/install-betterchromium.sh            # 幂等
+bash scripts/install-betterchromium.sh --force    # 强制重下
+```
 
 ## 注意事项（重要）
 

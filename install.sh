@@ -22,7 +22,7 @@ if [ ! -f "$CFG/powerline-theme.json" ]; then
   exit 1
 fi
 
-echo "==> [1/6] 安装 pi 包（幂等，重复安装无害）"
+echo "==> [1/7] 安装 pi 包（幂等，重复安装无害）"
 for pkg in \
   "npm:pi-lmstudio" \
   "npm:pi-mcp-adapter" \
@@ -40,7 +40,7 @@ for pkg in \
   pi install "$pkg" >/dev/null 2>&1 || { echo "  !! 安装失败: $pkg"; exit 1; }
 done
 
-echo "==> [2/6] 合并 powerline 配置与 TUI 全屏模式到 settings.json"
+echo "==> [2/7] 合并 powerline 配置与 TUI 全屏模式到 settings.json"
 python3 - "$AGENT_DIR/settings.json" <<'PY'
 import json, sys
 path = sys.argv[1]
@@ -68,7 +68,7 @@ with open(path, "w") as f:
 print("  settings.json powerline / tuiMode 已写入")
 PY
 
-echo "==> [3/6] 复制配置文件"
+echo "==> [3/7] 复制配置文件"
 mkdir -p "$AGENT_DIR/extensions/powerline-footer" \
          "$AGENT_DIR/extensions/pi-permission-system" \
          "$CONFIG_MCP_DIR"
@@ -79,7 +79,7 @@ cp "$CFG/mcp.json" "$CONFIG_MCP_DIR/mcp.json"
 cp "$CFG/at-anywhere.ts" "$AGENT_DIR/extensions/at-anywhere.ts"
 echo "  theme.json / permission config / mcp.json / at-anywhere.ts 已复制"
 
-echo "==> [4/6] 环境变量（~/.zshenv，幂等）"
+echo "==> [4/7] 环境变量（~/.zshenv，幂等）"
 if ! grep -q "POWERLINE_NERD_FONTS=0" "$HOME/.zshenv" 2>/dev/null; then
   echo 'export POWERLINE_NERD_FONTS=0' >> "$HOME/.zshenv"
   echo "  已写入 ~/.zshenv"
@@ -92,7 +92,7 @@ if [ -x "$HOME/.pi/agent/bin/hound" ] && ! echo "$PATH" | grep -q "$HOME/.pi/age
   echo "  已把 ~/.pi/agent/bin 加入 PATH"
 fi
 
-echo "==> [5/6] 应用 powerline-footer 源码 patch（版本 ${POWERLINE_VERSION}）"
+echo "==> [5/7] 应用 powerline-footer 源码 patch（版本 ${POWERLINE_VERSION}）"
 PFDIR="$NPM_DIR/pi-powerline-footer"
 if [ ! -d "$PFDIR" ]; then
   echo "  !! 未找到 ${PFDIR}，无法应用 patch（请先重跑本脚本）"
@@ -159,13 +159,19 @@ else
   repair_and_apply "检测到 patch 部分缺失（$MISSING）"
 fi
 
-echo "==> [6/6] 环境检查"
+echo "==> [6/7] 安装 BetterChromium（BetterWright 托管浏览器，走镜像加速）"
+bash "$SCRIPT_DIR/scripts/install-betterchromium.sh"
+
+echo "==> [7/7] 环境检查"
 which pi >/dev/null 2>&1 || { echo "  !! 未找到 pi，请先安装 pi coding agent"; exit 1; }
 if ! which hound >/dev/null 2>&1; then
   echo "  !! 未找到 hound（web 搜索工具）。安装: pip install hound-mcp[all]"
 fi
 if ! ls "$HOME/Library/Caches/ms-playwright"/chromium-* >/dev/null 2>&1; then
   echo "  !! 未发现 Playwright Chromium。首次使用会现场下载（慢），建议: npx playwright install chromium"
+fi
+if ! ls "$HOME/.betterwright/chromium"/*/ >/dev/null 2>&1; then
+  echo "  !! 未发现 BetterChromium（BetterWright 浏览器）。重跑: bash scripts/install-betterchromium.sh"
 fi
 
 echo ""
