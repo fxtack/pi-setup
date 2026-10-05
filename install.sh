@@ -22,6 +22,36 @@ if [ ! -f "$CFG/powerline-theme.json" ]; then
   exit 1
 fi
 
+# 开发机检测：pi-espresso 是否已从本地源码安装。
+# 两种形式都算：extensions/ 下的 dev symlink，或 settings.json 中指向本地路径的包声明
+# （如 ../../Projects/pi-espresso）。命中时跳过 npm:pi-espresso，避免同扩展双加载
+# （两个 caffeinate 断言 + 两套 50ms 标题重断言互相覆盖）。开发机若想改用 npm 版，
+# 先移除本地声明/软链再跑。
+pi_espresso_dev_installed() {
+  if [ -L "$AGENT_DIR/extensions/espresso.ts" ]; then
+    return 0
+  fi
+  [ -f "$AGENT_DIR/settings.json" ] || return 1
+  python3 - "$AGENT_DIR/settings.json" <<'PY'
+import json, os, sys
+try:
+    with open(sys.argv[1]) as f:
+        data = json.load(f)
+except Exception:
+    sys.exit(1)
+for pkg in data.get("packages", []):
+    if not isinstance(pkg, str):
+        continue
+    low = pkg.lower()
+    # 只判断非远程来源；远程（npm/git/http/ssh）交给 pi 正常安装
+    if low.startswith(("npm:", "git:", "http://", "https://", "ssh://")):
+        continue
+    if os.path.basename(pkg.rstrip("/")).lower() == "pi-espresso":
+        sys.exit(0)
+sys.exit(1)
+PY
+}
+
 echo "==> [1/7] 安装 pi 包（幂等，重复安装无害）"
 for pkg in \
   "npm:pi-lmstudio" \
@@ -36,6 +66,10 @@ for pkg in \
   "npm:pi-espresso" \
   "npm:pi-powerline-footer@$POWERLINE_VERSION" \
   "npm:@juicesharp/rpiv-todo"; do
+  if [ "$pkg" = "npm:pi-espresso" ] && pi_espresso_dev_installed; then
+    echo "  - $pkg （跳过：已从本地源码安装 pi-espresso，避免双加载）"
+    continue
+  fi
   echo "  - $pkg"
   pi install "$pkg" >/dev/null 2>&1 || { echo "  !! 安装失败: $pkg"; exit 1; }
 done
@@ -74,10 +108,35 @@ mkdir -p "$AGENT_DIR/extensions/powerline-footer" \
          "$CONFIG_MCP_DIR"
 cp "$CFG/powerline-theme.json" "$AGENT_DIR/extensions/powerline-footer/theme.json"
 cp "$CFG/permission-config.json" "$AGENT_DIR/extensions/pi-permission-system/config.json"
-cp "$CFG/mcp.json" "$CONFIG_MCP_DIR/mcp.json"
+# mcp.json 用「深合并」而非整文件覆盖：pi-setup 声明的服务器写入/覆盖，
+# 本机独有的其他服务器（如 weibo）原样保留 —— 这些从不进入 pi-setup 仓库。
+python3 - "$CONFIG_MCP_DIR/mcp.json" "$CFG/mcp.json" <<'PY'
+import json, os, sys
+target, source = sys.argv[1], sys.argv[2]
+def load(path):
+    if not os.path.exists(path):
+        return {}
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+dst, src = load(target), load(source)
+servers = dst.setdefault("mcpServers", {})
+for name, cfg in (src.get("mcpServers") or {}).items():
+    servers[name] = cfg
+for key, value in src.items():
+    if key != "mcpServers":
+        dst.setdefault(key, value)
+os.makedirs(os.path.dirname(target), exist_ok=True)
+with open(target, "w") as f:
+    json.dump(dst, f, indent=2, ensure_ascii=False)
+    f.write("\n")
+print("  mcp.json 已深合并（本机已有服务器保留）")
+PY
 # @ 引用增强扩展（Claude Code 风格：@../、@/绝对路径、@~/ 补全），全局自动发现 + /reload 热加载
 cp "$CFG/at-anywhere.ts" "$AGENT_DIR/extensions/at-anywhere.ts"
-echo "  theme.json / permission config / mcp.json / at-anywhere.ts 已复制"
+echo "  theme.json / permission config 已复制，mcp.json 已合并，at-anywhere.ts 已部署"
 
 echo "==> [4/7] 环境变量（~/.zshenv，幂等）"
 if ! grep -q "POWERLINE_NERD_FONTS=0" "$HOME/.zshenv" 2>/dev/null; then

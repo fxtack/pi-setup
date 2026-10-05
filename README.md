@@ -10,7 +10,7 @@
 |---|---|
 | `install.sh` | 一键部署脚本（幂等，可重复执行） |
 | `scripts/install-betterchromium.sh` | 安装 BetterChromium（BetterWright 托管浏览器），镜像加速 + SHA-256 校验，可独立运行 |
-| `configs/mcp.json` | Playwright MCP 服务器配置 → `~/.config/mcp/mcp.json` |
+| `configs/mcp.json` | Playwright MCP 服务器配置（**深合并**到 `~/.config/mcp/mcp.json`，本机独有服务器保留） |
 | `configs/powerline-theme.json` | footer 图标文字定制 → `~/.pi/agent/extensions/powerline-footer/theme.json` |
 | `configs/permission-config.json` | 权限插件策略（含 yoloMode）→ `~/.pi/agent/extensions/pi-permission-system/config.json` |
 | `configs/at-anywhere.ts` | Claude Code 风格 `@` 引用增强扩展（`@../`、`@/` 绝对路径、`@~/` 补全 + 上级目录逐级入口 + 不存在目录自动回退）→ `~/.pi/agent/extensions/at-anywhere.ts` |
@@ -34,9 +34,9 @@ bash install.sh
 > 也可以 `scp -r ~/Project/pi-setup user@newhost:~` 拷贝目录后 `bash pi-setup/install.sh`。
 
 脚本会自动：
-1. `pi install` 全部 12 个包（lmstudio、mcp-adapter、hound、subagents、fff、hermes-memory、permission-system、interactive-shell、betterwright、espresso、powerline-footer、rpiv-todo）
+1. `pi install` 全部 12 个包（lmstudio、mcp-adapter、hound、subagents、fff、hermes-memory、permission-system、interactive-shell、betterwright、espresso、powerline-footer、rpiv-todo）；开发机已本地安装 pi-espresso 时自动跳过该项
 2. 合并 powerline 布局/预设/分隔符 + TUI 全屏模式（`tuiMode`/`fullscreenScrollbar`）+ bash ghost 补全（`bashMode.completions`，作用于 `!`/`!!` 与 bash 模式输入）到 `settings.json`
-3. 复制 4 个配置文件到正确位置（含 `at-anywhere.ts` `@` 引用增强扩展）
+3. 部署 4 个配置文件：复制 theme/permission/at-anywhere，`mcp.json` **深合并**（保留本机独有服务器）
 4. 写入 `~/.zshenv` 环境变量（`POWERLINE_NERD_FONTS=0`、`~/.pi/agent/bin` PATH）
 5. 应用 powerline-footer 源码 patch（三态检测：干净源码直接应用 / 已是最新自动跳过 / 旧版残留自动重装修复）
 6. 安装 BetterChromium（BetterWright 托管浏览器，走 gh-proxy.com 镜像加速，失败回退直连）
@@ -121,7 +121,7 @@ patch 可能无法应用。升级流程：
 干净源码直接应用；已应用最新则跳过；旧版残留或源码不一致则自动重装修复。
 **不会**在状态不一致时静默继续或静默跳过。
 
-- 脚本会**覆盖**目标机器的 powerline / 权限插件 / mcp 配置，部署前确认目标机无更重要的本地定制
+- 脚本会**覆盖**目标机器的 powerline / 权限插件配置，部署前确认目标机无更重要的本地定制；`mcp.json` 为**深合并**：pi-setup 声明的服务器写入/覆盖，本机独有的其他服务器（如 weibo）原样保留、不出现在本仓库
 - `settings.json` 只合并 `powerline` 键，其他键（模型、主题等）保持不动
 - 其余 11 个包（除 powerline 外）不锁版本，跟随 `latest`（含 pi-espresso，Linux 上自动 no-op）
-- 本机若已用 **dev symlink** 方式安装 pi-espresso（`~/.pi/agent/extensions/espresso.ts` 指向源码仓库），重跑脚本会额外装 npm 副本造成**双加载**；开发机请先移除 symlink 再跑，或忽略该步骤
+- 开发机若已从本地源码安装 pi-espresso（`~/.pi/agent/extensions/espresso.ts` 的 dev symlink，或 `settings.json` 中指向本地路径的包声明，如 `../../Projects/pi-espresso`），脚本会**自动跳过** `npm:pi-espresso`，避免同扩展**双加载**（两个 caffeinate 断言 + 两套标题重断言互相覆盖）；如需改用 npm 版，先移除本地声明/软链再跑
