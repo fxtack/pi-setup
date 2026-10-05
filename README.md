@@ -55,7 +55,7 @@ patch -p1 < ~/Project/pi-setup/patches/powerline.patch
 |---|---|---|
 | 特征行全部在位 | 已应用当前最新 patch | 跳过 |
 | 特征缺失 + dry-run 干净 | 官方原版源码（新机器） | 直接打 patch |
-| dry-run 报 `hunks failed` | 旧版 patch 残留 / 源码损坏 | 自动重装 0.16.0 还原后重打 |
+| dry-run 报 `hunks failed` | 旧版 patch 残留 / 源码损坏 | 自动重装 0.19.1 还原后重打 |
 | 特征部分缺失 + dry-run 非干净 | 混合状态（部分文件被还原） | 保守重装后统一重打 |
 
 > ⚠️ 已知坑：
@@ -109,8 +109,8 @@ bash scripts/install-betterchromium.sh --force    # 强制重下
 
 ## 注意事项（重要）
 
-⚠️ **powerline-footer 版本被锁定为 0.16.0**（`install.sh` 用 `npm:pi-powerline-footer@0.16.0` 安装并校验版本）。
-`patches/powerline.patch` 是针对 0.16.0 源码生成的，如果升级到更高版本，
+⚠️ **powerline-footer 版本被锁定为 0.19.1**（`install.sh` 用 `npm:pi-powerline-footer@0.19.1` 安装并校验版本）。
+`patches/powerline.patch` 是针对 0.19.1 源码生成的，如果升级到更高版本，
 patch 可能无法应用。升级流程：
 
 1. 在新版本上重新验证 / 重新生成 `patches/powerline.patch`

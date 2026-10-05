@@ -1,7 +1,8 @@
-diff -ruN --exclude=.DS_Store package/bash-mode/editor.ts /Users/yuanshilong/.pi/agent/npm/node_modules/pi-powerline-footer/bash-mode/editor.ts
---- a/bash-mode/editor.ts	1985-10-26 16:15:00
-+++ b/bash-mode/editor.ts	2026-08-28 10:19:12
-@@ -364,6 +364,8 @@
+diff --git a/bash-mode/editor.ts b/bash-mode/editor.ts
+index 5ceaae6..98218f9 100644
+--- a/bash-mode/editor.ts
++++ b/bash-mode/editor.ts
+@@ -364,6 +364,8 @@ export class BashModeEditor extends CustomEditor {
      } else {
        this.clearGhostSuggestion();
      }
@@ -10,10 +11,11 @@ diff -ruN --exclude=.DS_Store package/bash-mode/editor.ts /Users/yuanshilong/.pi
      return true;
    }
  
-diff -ruN --exclude=.DS_Store package/icons.ts /Users/yuanshilong/.pi/agent/npm/node_modules/pi-powerline-footer/icons.ts
---- a/icons.ts	1985-10-26 16:15:00
-+++ b/icons.ts	2026-08-28 10:19:12
-@@ -28,20 +28,24 @@
+diff --git a/icons.ts b/icons.ts
+index 7232569..1e58466 100644
+--- a/icons.ts
++++ b/icons.ts
+@@ -28,20 +28,24 @@ export const SEP_DOT = " · ";
  
  // Thinking level display text (Unicode/ASCII)
  export const THINKING_TEXT_UNICODE: Record<string, string> = {
@@ -48,34 +50,45 @@ diff -ruN --exclude=.DS_Store package/icons.ts /Users/yuanshilong/.pi/agent/npm/
  };
  
  // Get thinking text based on font support
-diff -ruN --exclude=.DS_Store package/index.ts /Users/yuanshilong/.pi/agent/npm/node_modules/pi-powerline-footer/index.ts
---- a/index.ts	1985-10-26 16:15:00
-+++ b/index.ts	2026-08-28 10:46:50
-@@ -1076,66 +1076,94 @@
+diff --git a/index.ts b/index.ts
+index e363ddf..e20a2c5 100644
+--- a/index.ts
++++ b/index.ts
+@@ -1107,70 +1107,108 @@ function buildContentFromParts(
+ 
+ /**
+  * Responsive segment layout - fits segments into top bar, overflows to secondary row.
+- * When terminal is wide enough, secondary segments move up to top bar.
+- * When narrow, top bar segments overflow down to secondary row.
++ * Segments render in two groups: `left` at the left edge, `right` pushed to the right
++ * edge when both fit. Otherwise they fall back to sequential packing and overflow to
++ * the secondary row. The final line is width-clamped, because an over-wide footer line
++ * makes pi's TUI throw an uncaughtException and kills the session.
+  */
+ function computeResponsiveLayout(
+   ctx: SegmentContext,
+   presetDef: ReturnType<typeof getPreset>,
+-  allSegmentIds: StatusLineSegmentId[],
++  segments: { leftSegments: StatusLineSegmentId[]; rightSegments: StatusLineSegmentId[] },
+   availableWidth: number
+ ): { topContent: string; secondaryContent: string } {
+   const separatorStyle = config.separator ?? presetDef.separator;
    const separatorDef = getSeparator(separatorStyle);
    const sepWidth = visibleWidth(separatorDef.left) + 2; // separator + spaces around it
- 
--  // Get all segments: primary first, then secondary
-+  // Get all segments: left + right groups
-   const mergedSegments = mergeSegmentsWithCustomItems(presetDef, config.customItems, {
-     layout: config.layout,
-     disabledSegments: config.disabledSegments,
-   });
--  const primaryIds = [...mergedSegments.leftSegments, ...mergedSegments.rightSegments];
--  const secondaryIds = mergedSegments.secondarySegments;
--  const allSegmentIds = [...primaryIds, ...secondaryIds];
-+  const leftIds = mergedSegments.leftSegments;
-+  const rightIds = mergedSegments.rightSegments;
  
 -  // Render all segments and get their widths
 -  const renderedSegments: { content: string; width: number }[] = [];
 -  for (const segId of allSegmentIds) {
 +  // Separate left and right groups so `right` can be right-aligned to the screen edge.
++  const leftIds = segments.leftSegments;
++  const rightIds = segments.rightSegments;
++  const renderedByKey = new Map<StatusLineSegmentId, boolean>([
++    ...leftIds.map((id) => [id, true] as const),
++    ...rightIds.map((id) => [id, false] as const),
++  ]);
 +  const leftRendered: { content: string; width: number }[] = [];
 +  const rightRendered: { content: string; width: number }[] = [];
-+  const renderedByKey = new Map([...leftIds.map((id) => [id, true]), ...rightIds.map((id) => [id, false])]);
-+  const primaryIds = [...leftIds, ...rightIds];
-+  for (const segId of primaryIds) {
++  for (const segId of [...leftIds, ...rightIds]) {
      const { content, width, visible } = renderSegmentWithWidth(segId, ctx);
 -    if (visible) {
 -      renderedSegments.push({ content, width });
@@ -87,47 +100,50 @@ diff -ruN --exclude=.DS_Store package/index.ts /Users/yuanshilong/.pi/agent/npm/
    }
  
 -  if (renderedSegments.length === 0) {
--    return { topContent: "", secondaryContent: "" };
--  }
++  if (leftRendered.length === 0 && rightRendered.length === 0) {
+     return { topContent: "", secondaryContent: "" };
+   }
+ 
+-  // Calculate how many segments fit in top bar
+-  // Account for: leading space (1) + trailing space (1) = 2 chars overhead
+-  const baseOverhead = 2;
+-  let currentWidth = baseOverhead;
+-  let topSegments: string[] = [];
+-  let overflowSegments: { content: string; width: number }[] = [];
+-  let overflow = false;
 +  const buildStr = (parts: { content: string; width: number }[]) =>
 +    parts.length === 0 ? "" : parts.map((p) => p.content).join(` ${separatorDef.left} `);
  
--  // Calculate how many segments fit in top bar
+-  for (const seg of renderedSegments) {
+-    const neededWidth = seg.width + (topSegments.length > 0 ? sepWidth : 0);
 +  const leftStr = buildStr(leftRendered);
 +  const rightStr = buildStr(rightRendered);
 +  const leftW = leftRendered.reduce((s, p) => s + p.width, 0) + (leftRendered.length > 0 ? (leftRendered.length - 1) * sepWidth : 0);
 +  const rightW = rightRendered.reduce((s, p) => s + p.width, 0) + (rightRendered.length > 0 ? (rightRendered.length - 1) * sepWidth : 0);
-+
-   // Account for: leading space (1) + trailing space (1) = 2 chars overhead
-   const baseOverhead = 2;
--  let currentWidth = baseOverhead;
--  let topSegments: string[] = [];
-+  const fullWidth = (leftStr ? 2 : 0) + leftW + (rightStr ? 2 : 0) + rightW;
-+  let topContent: string;
-   let overflowSegments: { content: string; width: number }[] = [];
--  let overflow = false;
-+  let secondarySegments: { content: string; width: number }[] = [];
  
--  for (const seg of renderedSegments) {
--    const neededWidth = seg.width + (topSegments.length > 0 ? sepWidth : 0);
--
 -    if (!overflow && currentWidth + neededWidth <= availableWidth) {
 -      topSegments.push(seg.content);
 -      currentWidth += neededWidth;
 -    } else {
 -      overflow = true;
 -      overflowSegments.push(seg);
++  // Account for: leading space (1) + trailing space (1) = 2 chars overhead
++  const baseOverhead = 2;
++  const fullWidth = (leftStr ? 2 : 0) + leftW + (rightStr ? 2 : 0) + rightW;
++  let topContent: string;
++  const overflowSegments: { content: string; width: number }[] = [];
++  const secondarySegments: { content: string; width: number }[] = [];
++
 +  if (rightStr && fullWidth <= availableWidth) {
 +    // Both groups fit: left at the left edge, right pushed to the right edge.
 +    // pad uses max(0, ...) - never max(1, ...): forcing a 1-column pad made an
-+    // exact-fit line overflow by one column, crashing pi's TUI (139 > 138).
++    // exact-fit line overflow by one column, crashing pi's TUI.
 +    const pad = Math.max(0, availableWidth - (leftStr ? 2 + leftW : 0) - (rightStr ? 2 + rightW : 0));
 +    topContent = (leftStr ? ` ${leftStr} ` : "") + " ".repeat(pad) + (rightStr ? ` ${rightStr} ` : "");
 +  } else if (!rightStr && leftW + baseOverhead <= availableWidth) {
 +    topContent = ` ${leftStr} `;
 +  } else if (leftW + (rightStr ? rightW + sepWidth : 0) + baseOverhead <= availableWidth) {
-+    // No right alignment possible, but all fit sequentially on one row
-+    // (baseOverhead accounts for the leading/trailing spaces added below).
++    // No right alignment possible, but all fit sequentially on one row.
 +    const seq = [...leftRendered, ...rightRendered];
 +    topContent = ` ${seq.map((p) => p.content).join(` ${separatorDef.left} `)} `;
 +  } else {
@@ -147,13 +163,13 @@ diff -ruN --exclude=.DS_Store package/index.ts /Users/yuanshilong/.pi/agent/npm/
 +      }
      }
 -  }
-+    topContent = topSegments.length ? ` ${topSegments.join(` ${separatorDef.left} `)} ` : "";
- 
+-
 -  // Fit overflow segments into secondary row (same width constraint)
 -  // Stop at first non-fitting segment to preserve ordering
 -  let secondaryWidth = baseOverhead;
 -  let secondarySegments: string[] = [];
--
++    topContent = topSegments.length ? ` ${topSegments.join(` ${separatorDef.left} `)} ` : "";
+ 
 -  for (const seg of overflowSegments) {
 -    const neededWidth = seg.width + (secondarySegments.length > 0 ? sepWidth : 0);
 -    if (secondaryWidth + neededWidth <= availableWidth) {
@@ -187,7 +203,7 @@ diff -ruN --exclude=.DS_Store package/index.ts /Users/yuanshilong/.pi/agent/npm/
    };
  }
  
-@@ -1182,6 +1210,9 @@
+@@ -1218,6 +1256,9 @@ export default function powerlineFooter(pi: ExtensionAPI) {
    let liveAssistantUsage: SessionAssistantUsage | null = null;
    let approximateContextUsage: CoreContextUsage | null = null;
    let isStreaming = false;
@@ -197,7 +213,7 @@ diff -ruN --exclude=.DS_Store package/index.ts /Users/yuanshilong/.pi/agent/npm/
    let tuiRef: any = null;
    let restoreFooterStatusRepaintHook: (() => void) | null = null;
    let stashShortcutInputUnsubscribe: (() => void) | null = null;
-@@ -1892,6 +1923,10 @@
+@@ -2086,6 +2127,10 @@ export default function powerlineFooter(pi: ExtensionAPI) {
      const message = event.message;
      if (isRecord(message) && message.role === "user") {
        finishPendingQueueDelivery(getPromptHistoryText(message.content), ctx);
@@ -208,7 +224,7 @@ diff -ruN --exclude=.DS_Store package/index.ts /Users/yuanshilong/.pi/agent/npm/
      }
    });
  
-@@ -1906,6 +1941,18 @@
+@@ -2100,6 +2145,18 @@ export default function powerlineFooter(pi: ExtensionAPI) {
        }
      }
      requestImmediateStatusRender({ deferDuringTyping: false });
@@ -227,7 +243,7 @@ diff -ruN --exclude=.DS_Store package/index.ts /Users/yuanshilong/.pi/agent/npm/
    });
  
    pi.on("turn_end", async (_event, ctx) => {
-@@ -2730,6 +2777,7 @@
+@@ -2943,6 +3000,7 @@ export default function powerlineFooter(pi: ExtensionAPI) {
        options: segmentOptions,
        theme,
        colors,
@@ -235,10 +251,20 @@ diff -ruN --exclude=.DS_Store package/index.ts /Users/yuanshilong/.pi/agent/npm/
      };
    }
  
-diff -ruN --exclude=.DS_Store package/segments.ts /Users/yuanshilong/.pi/agent/npm/node_modules/pi-powerline-footer/segments.ts
---- a/segments.ts	1985-10-26 16:15:00
-+++ b/segments.ts	2026-08-28 15:00:53
-@@ -60,13 +60,20 @@
+@@ -2994,7 +3052,7 @@ export default function powerlineFooter(pi: ExtensionAPI) {
+     }
+ 
+     lastLayoutWidth = width;
+-    lastLayoutResult = computeResponsiveLayout(segmentCtx, presetDef, allSegmentIds, width);
++    lastLayoutResult = computeResponsiveLayout(segmentCtx, presetDef, mergedSegments, width);
+     lastLayoutTimestamp = now;
+     layoutDirty = false;
+     forceNextLayoutRecompute = false;
+diff --git a/segments.ts b/segments.ts
+index ebf0497..c6cfc42 100644
+--- a/segments.ts
++++ b/segments.ts
+@@ -60,13 +60,20 @@ const modelSegment: StatusLineSegment = {
  
      let content = withIcon(icons.model, modelName);
  
@@ -264,7 +290,7 @@ diff -ruN --exclude=.DS_Store package/segments.ts /Users/yuanshilong/.pi/agent/n
        }
      }
  
-@@ -126,8 +133,22 @@
+@@ -126,8 +133,22 @@ const pathSegment: StatusLineSegment = {
        }
      }
  
@@ -289,7 +315,7 @@ diff -ruN --exclude=.DS_Store package/segments.ts /Users/yuanshilong/.pi/agent/n
    },
  };
  
-@@ -270,11 +291,10 @@
+@@ -276,11 +297,10 @@ const queueSegment: StatusLineSegment = {
  const tokenInSegment: StatusLineSegment = {
    id: "token_in",
    render(ctx) {
@@ -304,7 +330,7 @@ diff -ruN --exclude=.DS_Store package/segments.ts /Users/yuanshilong/.pi/agent/n
      return { content: color(ctx, "tokens", content), visible: true };
    },
  };
-@@ -457,7 +477,7 @@
+@@ -463,7 +483,7 @@ const cacheReadSegment: StatusLineSegment = {
      if (format === "percent") {
        content = [icons.cache, `${hitRate}%`].filter(Boolean).join(" ");
      } else {
@@ -313,10 +339,11 @@ diff -ruN --exclude=.DS_Store package/segments.ts /Users/yuanshilong/.pi/agent/n
        content = format === "both" ? `${tokens} (${hitRate}%)` : tokens;
      }
      return { content: color(ctx, "tokens", content), visible: true };
-diff -ruN --exclude=.DS_Store package/types.ts /Users/yuanshilong/.pi/agent/npm/node_modules/pi-powerline-footer/types.ts
---- a/types.ts	1985-10-26 16:15:00
-+++ b/types.ts	2026-08-28 10:19:12
-@@ -201,6 +201,7 @@
+diff --git a/types.ts b/types.ts
+index 18bbd89..2eb4e7a 100644
+--- a/types.ts
++++ b/types.ts
+@@ -205,6 +205,7 @@ export interface SegmentContext {
    usingSubscription: boolean;
    queueSummary: QueueSummary;
    sessionStartTime: number;

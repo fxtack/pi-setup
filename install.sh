@@ -14,7 +14,7 @@ NPM_DIR="$AGENT_DIR/npm/node_modules"
 CONFIG_MCP_DIR="$HOME/.config/mcp"
 
 # powerline-footer 版本被 patch 锁定，改版本前务必验证 patches/powerline.patch
-POWERLINE_VERSION="0.16.0"
+POWERLINE_VERSION="0.19.1"
 
 # 校验当前目录必须是 setup 仓库根（而不是被 clone 成 setup/setup 的子目录）
 if [ ! -f "$CFG/powerline-theme.json" ]; then
@@ -180,7 +180,7 @@ set -e
 MISSING=""
 grep -q 'Fire onChange' "$PFDIR/bash-mode/editor.ts"  || MISSING="$MISSING editor.ts"
 grep -q 'minimal: "minimal"' "$PFDIR/icons.ts"         || MISSING="$MISSING icons.ts"
-grep -q 'msgTpsValue' "$PFDIR/index.ts"                || MISSING="$MISSING index.ts"
+grep -q 'computeResponsiveLayout(segmentCtx, presetDef, mergedSegments' "$PFDIR/index.ts" || MISSING="$MISSING index.ts"
 grep -q 'tps.toFixed(1)' "$PFDIR/segments.ts"          || MISSING="$MISSING segments.ts"
 grep -q 'extMsgTps: number | null' "$PFDIR/types.ts"   || MISSING="$MISSING types.ts"
 
