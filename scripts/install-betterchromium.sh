@@ -11,8 +11,8 @@
 #    bash scripts/install-betterchromium.sh --force    # 强制重新下载
 #
 #  可覆盖环境变量:
-#    BETTERWRIGHT_CHROMIUM_VERSION   版本号（默认与 betterwright 1.11.0 源码 pin 一致）
-#    BETTERWRIGHT_CHROMIUM_RELEASE_TAG  GitHub release tag（默认 betterchromium-<版本>-r3）
+#    BETTERWRIGHT_CHROMIUM_VERSION   版本号（默认与 betterwright 2.8.8 源码 pin 一致）
+#    BETTERWRIGHT_CHROMIUM_RELEASE_TAG  GitHub release tag（默认 betterchromium-<版本>-r2）
 #    BETTERWRIGHT_DOWNLOAD_MIRROR    镜像前缀（默认 https://gh-proxy.com，设空则跳过镜像）
 #    BETTERWRIGHT_HOME               BetterWright 数据根（默认 ~/.betterwright）
 # ============================================================
@@ -26,9 +26,9 @@ case "${1:-}" in
   *) echo "用法: bash $0 [--force]"; exit 1 ;;
 esac
 
-# ---- 版本与发布（默认值 = betterwright 1.11.0 dist/src/chromium-fork.js 的 pin）----
-BW_VERSION="${BETTERWRIGHT_CHROMIUM_VERSION:-151.0.7922.108}"
-RELEASE_TAG="${BETTERWRIGHT_CHROMIUM_RELEASE_TAG:-betterchromium-${BW_VERSION}-r3}"
+# ---- 版本与发布（默认值 = betterwright 2.8.8 dist/src/chromium-fork.js 的 pin）----
+BW_VERSION="${BETTERWRIGHT_CHROMIUM_VERSION:-153.0.8010.36}"
+RELEASE_TAG="${BETTERWRIGHT_CHROMIUM_RELEASE_TAG:-betterchromium-${BW_VERSION}-r2}"
 MIRROR="${BETTERWRIGHT_DOWNLOAD_MIRROR:-https://gh-proxy.com}"
 ROOT="${BETTERWRIGHT_HOME:-$HOME/.betterwright}/chromium"
 
@@ -38,19 +38,19 @@ ROOT="${BETTERWRIGHT_HOME:-$HOME/.betterwright}/chromium"
 case "$(uname -s):$(uname -m)" in
   Darwin:arm64)
     ASSET="betterchromium-mac-arm64.zip"
-    SHA256="22484b810c601697afd7d0a82f39ced7f24ac7d8a2b01e52c5a61e9a6096ec67"
+    SHA256="e59b872601542e29c85a22ed8b83a36c9f6fd4ec0523c11253eaff74b279806c"
     LAYOUT="mac-arm64/BetterChromium.app/Contents/MacOS/BetterChromium"
     EXTRACT="ditto"          # macOS: ditto 保留 app bundle 元数据
     ;;
   Linux:x86_64)
     ASSET="betterchromium-linux-x64.zip"
-    SHA256="3eabe54aae9d8bde34170a6930df21932325be4570baf9d45431baad6cd03d98"
+    SHA256="fe7ec75a7bffe7c39de02073bf9592ac490f985b8457d16def2b372305830446"
     LAYOUT="linux-x64/betterchromium"
     EXTRACT="unzip"
     ;;
   MINGW*|MSYS*|CYGWIN*:x86_64)
     ASSET="betterchromium-win-x64.zip"
-    SHA256="03d8abb5d6064bbd808cf52c2a327692502c4ca6c565b2e1cdb639200c52dccb"
+    SHA256="589246796678e331773ce2a26d572384759f1aa57415418d5ee5685c017c2753"
     LAYOUT="win-x64/betterchromium.exe"
     EXTRACT="unzip"
     ;;
@@ -62,13 +62,27 @@ case "$(uname -s):$(uname -m)" in
 esac
 
 BINARY="$ROOT/$LAYOUT"
+# 受管安装回执目录/文件（betterwright >= 2.8 起校验，见下方 receipt_matches）
+PLATFORM_DIR="$ROOT/$(dirname "$LAYOUT" | cut -d/ -f1)"
+RECEIPT="$PLATFORM_DIR/.betterwright-install.json"
 URL="https://github.com/BetterWright/betterwright/releases/download/${RELEASE_TAG}/${ASSET}"
 SHA_CMD="shasum -a 256"
 command -v shasum >/dev/null 2>&1 || SHA_CMD="sha256sum"
 
-# ---- 幂等：已安装且未强制则跳过 ----
-if [ $FORCE -eq 0 ] && [ -x "$BINARY" ] && [ -s "$BINARY" ]; then
-  echo "✅ BetterChromium 已安装: $BINARY"
+# 回执校验：betterwright >= 2.8 的 resolveChromiumForkBinary 要求受管安装持有
+# 与 pin 完全一致的回执（version/releaseTag/assetName/sha256），否则判定
+# outdated/unverified 并报错要求重跑 `betterwright setup`。仅二进制存在不再算已安装。
+receipt_matches() {
+  [ -f "$RECEIPT" ] || return 1
+  grep -q "\"version\": \"$BW_VERSION\"" "$RECEIPT" &&
+    grep -q "\"releaseTag\": \"$RELEASE_TAG\"" "$RECEIPT" &&
+    grep -q "\"assetName\": \"$ASSET\"" "$RECEIPT" &&
+    grep -q "\"sha256\": \"$SHA256\"" "$RECEIPT"
+}
+
+# ---- 幂等：已安装、回执匹配且未强制则跳过 ----
+if [ $FORCE -eq 0 ] && [ -x "$BINARY" ] && [ -s "$BINARY" ] && receipt_matches; then
+  echo "✅ BetterChromium 已安装并通过回执校验: $BINARY"
   echo "   （--force 可强制重新下载）"
   exit 0
 fi
@@ -107,7 +121,6 @@ echo "    ✓ SHA-256 校验通过 ($ACTUAL)"
 
 # ---- 解压（先清掉旧平台目录，避免新旧文件混存）----
 mkdir -p "$ROOT"
-PLATFORM_DIR="$ROOT/$(dirname "$LAYOUT" | cut -d/ -f1)"
 rm -rf "$PLATFORM_DIR"
 case "$EXTRACT" in
   ditto) ditto -x -k "$ZIP" "$ROOT" ;;
@@ -120,6 +133,18 @@ if [ ! -x "$BINARY" ] || [ ! -s "$BINARY" ]; then
   exit 1
 fi
 chmod +x "$BINARY" 2>/dev/null || true
+
+# 写入受管安装回执（字段与 betterwright chromiumForkInstallReceipt 一致），
+# 否则 betterwright >= 2.8 会拒绝该安装。
+cat > "$RECEIPT" <<EOF
+{
+  "version": "$BW_VERSION",
+  "releaseTag": "$RELEASE_TAG",
+  "assetName": "$ASSET",
+  "sha256": "$SHA256"
+}
+EOF
+chmod 644 "$RECEIPT" 2>/dev/null || true
 echo "✅ BetterChromium 已安装: $BINARY"
 
 # ---- 可选：用 betterwright CLI 验证（能找到才跑，找不到只提示）----
